@@ -25,10 +25,11 @@
 ---
 
 
-| 周数📆 | 日期🕣 | 内容📒                               |  主讲💂‍♂️  |                          本周任务 📌                          |                                              课件📘                                               |
-| :---: | :---: | ----------------------------------- | :------: | :----------------------------------------------------------: |:-----------------------------------------------------------------------------------------------:|
-|  01   |  3.4  | Introduction and Intelligent Agents | Bin Yang | [Assignment1](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/Lab/Assignment_1/Assignment1.pdf) | [课件01](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/lecture01/lec01.pdf) |
-|  02   | 3.11  | Problem Solving: Search             | Bin Yang | [Project1](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/Lab/Project_1/Warm_Up.pdf) | [课件02](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/lecture02/lec02.pdf) |
+| 周数📆 | 日期🕣 | 内容📒                                                        |  主讲💂‍♂️  |                          本周任务 📌                          |                            课件📘                             |
+| :---: | :---: | ------------------------------------------------------------ | :------: | :----------------------------------------------------------: | :----------------------------------------------------------: |
+|  01   |  3.4  | Introduction and Intelligent Agents                          | Bin Yang | [Assignment1](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/Lab/Assignment_1/Assignment1.pdf) | [课件01](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/lecture01/lec01.pdf) |
+|  02   | 3.11  | Problem Solving: Search                                      | Bin Yang | [Project1](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/Lab/Project_1/Warm_Up.pdf) | [课件02](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/lecture02/lec02.pdf) |
+|  03   |  3-5  | Problem Solving: Informed Search and Search in Complex Environments | Bin Yang | [Project1_Code](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/Lab/Project_1/Project1_Code.pdf) / [Readme](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/Lab/Project_1/Project1_readme.pdf) | [课件03](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/lecture03/lec03.pdf) |
 
 
 
