@@ -31,6 +31,7 @@
 |  02   | 3.11  | Problem Solving: Search                                      | Bin Yang | [Project1](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/Lab/Project_1/Warm_Up.pdf) | [课件02](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/lecture02/lec02.pdf) |
 |  03   | 3.18  | Problem Solving: Informed Search and Search in Complex Environments | Bin Yang | [Project1_Code](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/Lab/Project_1/Project1_Code.pdf) / [Readme](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/Lab/Project_1/Project1_readme.pdf) | [课件03](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/lecture03/lec03.pdf) |
 |  04   | 3.25  | Search in Complex Environments                               | Bin Yang | [Project1_APP](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/Lab/Project_1/Project1_APP.pdf) / [Readme](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/Lab/Project_1/Project1_readme.pdf) | [课件04](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/lecture04/lec04.pdf) |
+|  05   |  4.1  | Adversarial Search and Games                                 | Bin Yang |                              \                               | [课件05](https://github.com/ccloud0525/AI-fundamentals-2026-Spring/blob/main/lecture05/lec05.pdf) |
 
 
 
