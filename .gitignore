@@ -1,3 +1,8 @@
 reports/
 .cph-ng
+media/
 *.exe
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
