@@ -1,0 +1,56 @@
+datasets:
+  fnspid:
+    display_name: "FNSPID"
+    dataset_label: "fnspid"
+    panel:
+      path: "REPLACE_WITH_ABSOLUTE_PATH_TO_fnspid_panel.parquet"
+      date_column: "date"
+      symbol_mode: "column"
+      symbol_column: "symbol"
+      price_columns:
+        execution_price: "open"
+        mark_price: "close"
+        benchmark_price: "close"
+    samples:
+      format: "series_manifest"
+      symbol_mode: "column"
+      symbol_column: "series_id"
+      paths:
+        H60_F1: "REPLACE_WITH_ABSOLUTE_PATH_TO_echo_H60_F1.csv"
+        H120_F5: "REPLACE_WITH_ABSOLUTE_PATH_TO_echo_H120_F5.csv"
+    predictions:
+      require_setting: true
+      signal_horizons:
+        H60_F1: 0
+        H120_F5: 4
+      result_paths:
+        DLinear: "REPLACE_WITH_ABSOLUTE_PATH_TO_fnspid_DLinear.parquet"
+    benchmark_symbols: ["SPY"]
+
+  oil_etf:
+    display_name: "OilETF-TimeMMD"
+    dataset_label: "oiletf"
+    panel:
+      path: "REPLACE_WITH_ABSOLUTE_PATH_TO_daily_panel.parquet"
+      date_column: "end_date"
+      symbol_mode: "constant"
+      constant_symbol: "oiletf"
+      price_columns:
+        execution_price: "uso_open"
+        mark_price: "uso_close"
+        benchmark_price: "uso_close"
+    samples:
+      format: "metadata_table"
+      symbol_mode: "constant"
+      constant_symbol: "oiletf"
+      paths:
+        H60_F1: "REPLACE_WITH_ABSOLUTE_PATH_TO_samples_H60_F1.parquet"
+        H120_F5: "REPLACE_WITH_ABSOLUTE_PATH_TO_samples_H120_F5.parquet"
+    predictions:
+      require_setting: true
+      signal_horizons:
+        H60_F1: 0
+        H120_F5: 4
+      result_paths:
+        DLinear: "REPLACE_WITH_ABSOLUTE_PATH_TO_oiletf_DLinear.parquet"
+    benchmark_symbols: ["USO"]

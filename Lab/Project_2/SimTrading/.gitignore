@@ -1,0 +1,25 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.streamlit/
+.DS_Store
+
+# Local runtime artifacts
+outputs/
+artifacts/
+screenshots/
+tmp/
+
+# Local dataset and prediction configuration
+config/datasets.yaml
+config/*.local.yaml
+config/*.override.yaml
+
+# User-provided data mounts
+data/
+datasets/
+predictions/
