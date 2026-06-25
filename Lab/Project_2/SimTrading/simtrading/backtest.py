@@ -18,52 +18,26 @@ class BacktestResult:
     trades: pd.DataFrame
     equity_curve: pd.DataFrame
     metrics: dict[str, float]
-    diagnostics: dict[str, int]
 
 
-def _resolve_execution_dates(
-    signals: pd.DataFrame,
-    market_data: pd.DataFrame,
-    date_column: str,
-    symbol_column: str,
-) -> tuple[pd.DataFrame, dict[str, int]]:
+def _resolve_execution_dates(signals: pd.DataFrame, market_data: pd.DataFrame, date_column: str, symbol_column: str) -> pd.DataFrame:
     market_lookup = market_data[[symbol_column, date_column]].drop_duplicates().sort_values([symbol_column, date_column])
-    signal_keys = signals[["symbol", "end_date"]].drop_duplicates().sort_values(["symbol", "end_date"])
-    signal_keys["end_date"] = pd.to_datetime(signal_keys["end_date"]).astype("datetime64[ns]")
-    pieces = []
-    for symbol, symbol_signals in signal_keys.groupby("symbol", sort=False):
-        calendar = market_lookup.loc[market_lookup[symbol_column] == symbol, [date_column]].rename(
-            columns={date_column: "execution_date"}
-        )
-        calendar["execution_date"] = pd.to_datetime(calendar["execution_date"]).astype("datetime64[ns]")
-        if calendar.empty:
-            matched = symbol_signals.copy()
-            matched["execution_date"] = pd.NaT
-        else:
-            matched = pd.merge_asof(
-                symbol_signals.sort_values("end_date"),
-                calendar.sort_values("execution_date"),
-                left_on="end_date",
-                right_on="execution_date",
-                direction="forward",
-                allow_exact_matches=False,
-            )
-        pieces.append(matched)
-
-    execution_frame = pd.concat(pieces, ignore_index=True) if pieces else pd.DataFrame()
-    dropped_keys = execution_frame["execution_date"].isna()
-    dropped_no_execution = int(
-        signals.merge(
-            execution_frame.loc[dropped_keys, ["symbol", "end_date"]],
-            on=["symbol", "end_date"],
-            how="inner",
-        ).shape[0]
-    )
-    execution_frame = execution_frame.loc[~dropped_keys].copy()
-    if execution_frame.empty:
+    rows = []
+    for symbol, group in signals[["symbol", "end_date"]].drop_duplicates().groupby("symbol", sort=False):
+        symbol_calendar = market_lookup.loc[market_lookup[symbol_column] == symbol, date_column].reset_index(drop=True)
+        if symbol_calendar.empty:
+            raise BacktestError(f"No market calendar exists for symbol `{symbol}`.")
+        positions = symbol_calendar.searchsorted(group["end_date"], side="right")
+        if (positions >= len(symbol_calendar)).any():
+            end_date = group.loc[positions >= len(symbol_calendar), "end_date"].iloc[0]
+            raise BacktestError(f"No executable market date exists after end_date={end_date.date()} for symbol `{symbol}`.")
+        out = group.copy()
+        out["execution_date"] = symbol_calendar.iloc[positions].to_numpy()
+        rows.append(out)
+    if not rows:
         raise BacktestError("No execution dates could be resolved.")
-    merged = signals.merge(execution_frame, on=["symbol", "end_date"], how="inner", validate="many_to_one")
-    return merged, {"dropped_no_execution": dropped_no_execution}
+    execution_frame = pd.concat(rows, ignore_index=True)
+    return signals.merge(execution_frame, on=["symbol", "end_date"], how="left", validate="many_to_one")
 
 
 def _attach_market_prices(dataset_bundle: DatasetBundle, signals: pd.DataFrame) -> pd.DataFrame:
@@ -71,6 +45,7 @@ def _attach_market_prices(dataset_bundle: DatasetBundle, signals: pd.DataFrame) 
     market = dataset_bundle.market_data.rename(columns={cfg.date_column: "market_date", cfg.symbol_column: "market_symbol"})
     execution_price_col = cfg.price_columns.execution_price
     mark_price_col = cfg.price_columns.mark_price
+    market = market.drop_duplicates(["market_symbol", "market_date"], keep="first")
 
     merged = signals.merge(
         market[["market_symbol", "market_date", execution_price_col, mark_price_col]],
@@ -84,16 +59,11 @@ def _attach_market_prices(dataset_bundle: DatasetBundle, signals: pd.DataFrame) 
     merged = merged.sort_values(["symbol", "execution_date"]).reset_index(drop=True)
     execution_price_lookup = merged[["symbol", "execution_date", execution_price_col]].rename(
         columns={"execution_date": "next_execution_date", execution_price_col: "next_execution_price"}
-    )
-    executable_counts = merged.groupby("symbol")["execution_date"].size().sort_values(ascending=False)
-    insufficient_symbols = executable_counts[executable_counts < 2]
-    if not insufficient_symbols.empty:
-        # Symbols with only one executable point cannot form a return interval and are dropped.
-        merged = merged.loc[~merged["symbol"].isin(insufficient_symbols.index)].copy()
+    ).drop_duplicates(["symbol", "next_execution_date"], keep="first")
     merged["next_execution_date"] = merged.groupby("symbol")["execution_date"].shift(-1)
     merged = merged.loc[merged["next_execution_date"].notna()].copy()
     if merged.empty:
-        raise BacktestError("Backtest requires at least two executable trading points for at least one symbol.")
+        raise BacktestError("Backtest requires at least two executable trading points per symbol.")
 
     merged = merged.merge(execution_price_lookup, on=["symbol", "next_execution_date"], how="left", validate="many_to_one")
     if merged["next_execution_price"].isna().any():
@@ -104,7 +74,7 @@ def _attach_market_prices(dataset_bundle: DatasetBundle, signals: pd.DataFrame) 
 def _compute_trade_frame(dataset_bundle: DatasetBundle, signals: pd.DataFrame, strategy_config: StrategyConfig) -> pd.DataFrame:
     cfg = dataset_bundle.dataset_config
     execution_price_col = cfg.price_columns.execution_price
-    trades, _ = _resolve_execution_dates(signals, dataset_bundle.market_data, cfg.date_column, cfg.symbol_column)
+    trades = _resolve_execution_dates(signals, dataset_bundle.market_data, cfg.date_column, cfg.symbol_column)
     trades = _attach_market_prices(dataset_bundle, trades)
 
     trades = trades.copy()
@@ -150,22 +120,7 @@ def _compute_metrics(equity_curve: pd.DataFrame) -> dict[str, float]:
 
 def run_backtest(dataset_bundle: DatasetBundle, strategy_config: StrategyConfig) -> BacktestResult:
     signals = build_signal_frame(dataset_bundle.predictions, strategy_config)
-    trades_with_execution, diagnostics = _resolve_execution_dates(
-        signals,
-        dataset_bundle.market_data,
-        dataset_bundle.dataset_config.date_column,
-        dataset_bundle.dataset_config.symbol_column,
-    )
-    trades = _attach_market_prices(dataset_bundle, trades_with_execution)
-
-    execution_price_col = dataset_bundle.dataset_config.price_columns.execution_price
-    trades = trades.copy()
-    trades["gross_return"] = trades["next_execution_price"] / trades[execution_price_col] - 1.0
-    turnover = trades.groupby("symbol")["raw_weight"].diff().abs().fillna(trades["raw_weight"].abs())
-    trades["transaction_cost"] = turnover * ((strategy_config.fee_bps + strategy_config.slippage_bps) / 10000.0)
-    trades["net_return"] = trades["raw_weight"] * trades["gross_return"] - trades["transaction_cost"]
-    trades["holding_days"] = (trades["next_execution_date"] - trades["execution_date"]).dt.days
-    diagnostics["trade_rows"] = int(len(trades))
+    trades = _compute_trade_frame(dataset_bundle, signals, strategy_config)
     equity_curve = _portfolio_curves(trades)
     metrics = _compute_metrics(equity_curve)
-    return BacktestResult(signals=signals, trades=trades, equity_curve=equity_curve, metrics=metrics, diagnostics=diagnostics)
+    return BacktestResult(signals=signals, trades=trades, equity_curve=equity_curve, metrics=metrics)

@@ -24,14 +24,15 @@ class StrategyBacktestTests(unittest.TestCase):
         panel = pd.DataFrame(
             {
                 "end_date": ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"],
+                "symbol": ["AAA", "AAA", "AAA", "AAA", "AAA"],
                 "open": [100, 101, 103, 102, 105],
                 "close": [101, 103, 102, 105, 106],
             }
         )
         samples = pd.DataFrame(
             {
-                "sample_id": ["oiletf_2024-01-01_H60_F1", "oiletf_2024-01-02_H60_F1", "oiletf_2024-01-03_H60_F1"],
-                "symbol": ["oiletf", "oiletf", "oiletf"],
+                "sample_id": ["AAA_2024-01-01_H60_F1", "AAA_2024-01-02_H60_F1", "AAA_2024-01-03_H60_F1"],
+                "symbol": ["AAA", "AAA", "AAA"],
                 "end_date": ["2024-01-01", "2024-01-02", "2024-01-03"],
                 "H": [60, 60, 60],
                 "F": [1, 1, 1],
@@ -40,13 +41,12 @@ class StrategyBacktestTests(unittest.TestCase):
         )
         predictions = pd.DataFrame(
             {
-                "dataset": ["oiletf", "oiletf", "oiletf"],
+                "dataset": ["oil_etf", "oil_etf", "oil_etf"],
                 "model": ["DLinear", "DLinear", "DLinear"],
-                "setting": ["H60_F1", "H60_F1", "H60_F1"],
-                "symbol": ["oiletf", "oiletf", "oiletf"],
+                "symbol": ["AAA", "AAA", "AAA"],
                 "end_date": ["2024-01-01", "2024-01-02", "2024-01-03"],
-                "window": [0, 1, 2],
-                "horizon": [0, 0, 0],
+                "window": [60, 60, 60],
+                "horizon": [1, 1, 1],
                 "y_true": [0.01, 0.02, -0.01],
                 "y_pred": [0.02, 0.03, -0.02],
                 "split": ["test", "test", "test"],
@@ -68,31 +68,19 @@ class StrategyBacktestTests(unittest.TestCase):
 datasets:
   oil_etf:
     display_name: "OilETF"
-    dataset_label: "oiletf"
-    panel:
-      path: "{self.panel_path.as_posix()}"
-      date_column: "end_date"
-      symbol_mode: "constant"
-      constant_symbol: "oiletf"
-      price_columns:
-        execution_price: "open"
-        mark_price: "close"
-        benchmark_price: "close"
-    samples:
-      format: "metadata_table"
-      symbol_mode: "constant"
-      constant_symbol: "oiletf"
-      paths:
-        H60_F1: "{self.samples_h60.as_posix()}"
-        H120_F5: "{self.samples_h120.as_posix()}"
-    predictions:
-      require_setting: true
-      signal_horizons:
-        H60_F1: 0
-        H120_F5: 4
-      result_paths:
-        DLinear: "{self.predictions_path.as_posix()}"
-    benchmark_symbols: ["USO"]
+    panel_path: "{self.panel_path.as_posix()}"
+    sample_paths:
+      H60_F1: "{self.samples_h60.as_posix()}"
+      H120_F5: "{self.samples_h120.as_posix()}"
+    date_column: "end_date"
+    symbol_column: "symbol"
+    price_columns:
+      execution_price: "open"
+      mark_price: "close"
+      benchmark_price: "close"
+    prediction_result_paths:
+      DLinear: "{self.predictions_path.as_posix()}"
+    benchmark_symbols: ["AAA"]
 """,
             encoding="utf-8",
         )
@@ -134,6 +122,27 @@ datasets:
                     score_column="y_pred",
                 ),
             )
+
+    def test_backtest_tolerates_duplicate_market_timestamps(self) -> None:
+        panel = pd.read_parquet(self.panel_path)
+        _write_parquet(pd.concat([panel, panel.iloc[[1]]], ignore_index=True), self.panel_path)
+        app_config = load_app_config(self.config_path)
+        bundle = load_dataset(app_config, "oil_etf", "H60_F1", "DLinear")
+
+        result = run_backtest(
+            bundle,
+            StrategyConfig(
+                name=StrategyName.LONG_CASH,
+                threshold=0.0,
+                fee_bps=0.0,
+                slippage_bps=0.0,
+                top_k=1,
+                max_position=1.0,
+                score_column="y_pred",
+            ),
+        )
+
+        self.assertGreater(len(result.trades), 0)
 
 
 if __name__ == "__main__":

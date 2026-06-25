@@ -7,6 +7,7 @@ _os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
 
 import argparse
 import json
+from contextlib import redirect_stderr
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +65,20 @@ def _resolve_defaults(echo_config: dict[str, Any], mode: str) -> dict[str, Any]:
         )
         echo_config.setdefault("vision_image_size", 224)
         echo_config.setdefault("freeze_vision_backbone", True)
+
+    # When a ViT model is specified (from the command-line echo-config), ensure
+    # vision_image_size matches the model's expected input size.  The PEFT adapter
+    # was trained with a ViT, so we can't drop it even for text-only evaluation.
+    if "vision_model_name_or_path" in echo_config:
+        echo_config.setdefault("vision_image_size", 224)
+        echo_config.setdefault("freeze_vision_backbone", True)
+
+    # ECHO safety defaults — prevent residual_scale from being zeroed
+    # when --echo-config is not explicitly passed on the command line.
+    # Chronos2EchoConfig defaults residual_scale_init=0.0 which kills the
+    # ECHO fusion branch; we override to 1.0 for inference modes.
+    echo_config.setdefault("residual_scale_init", 1.0)
+    echo_config.setdefault("guard_against_baseline", False)
     return echo_config
 
 
@@ -99,9 +114,6 @@ def load_pipeline(
         )
         base_model_id = adapter_config.get("base_model_name_or_path", "amazon/chronos-2")
 
-        # Resolve to the local HuggingFace cache when the network is
-        # unavailable — the snapshot directory contains config.json +
-        # model.safetensors and works as a drop-in model path.
         import os as _os
 
         _hf_cache = Path(
@@ -116,6 +128,12 @@ def load_pipeline(
                 print(f"Using cached base model: {base_model_id}")
 
         base_cfg = cfg if cfg is not None else Chronos2EchoConfig()
+        # Override init values in the config so reset_echo_safety_parameters()
+        # does not zero out the trained weights when the PEFT adapter is
+        # loaded on top.  The adapter's modules_to_save=["echo"] will
+        # restore the actual trained values.
+        base_cfg.residual_scale_init = 0.0
+        base_cfg.guard_against_baseline = False
         base_pipeline = Chronos2EchoPipeline.from_pretrained(
             base_model_id, echo_config=base_cfg, device_map=device_map,
         )
@@ -140,6 +158,7 @@ def _eval_predict(
     forecast: int,
     image_root_path: Path | None,
     batch_size: int,
+    features: str = "MS",
     image_column: str | None = "image_path",
 ) -> dict[str, np.ndarray]:
     """Plain text + image inference via ``predict_timemmd`` (text_only / text_image).
@@ -154,7 +173,7 @@ def _eval_predict(
         target="OT",
         seq_len=history,
         pred_len=forecast,
-        features="MS",
+        features=features,
         batch_size=batch_size,
         flag="test",
         image_column=image_column,
@@ -184,6 +203,7 @@ def _eval_image_only(
     forecast: int,
     image_root_path: Path | None,
     batch_size: int,
+    features: str = "MS",
 ) -> dict[str, np.ndarray]:
     """Image-only inference — manual batching, **no text** passed to the model."""
     window_dataset, batch_dataset = pipeline._create_timemmd_dataset(
@@ -193,7 +213,7 @@ def _eval_image_only(
         seq_len=history,
         pred_len=forecast,
         target="OT",
-        features="MS",
+        features=features,
         batch_size=batch_size,
         shuffle=False,
         repeat=False,
@@ -271,6 +291,12 @@ def collect_records(
 def cmd_evaluate(args: argparse.Namespace) -> None:
     metadata = load_metadata(args.metadata)
     history, forecast = parse_setting(args.setting)
+    # Auto-detect features mode: "S" when no covariates, "MS" otherwise.
+    # H1056 settings are always univariate (Time-MMD standard S-mode).
+    if args.setting.startswith("H1056"):
+        features = "S"
+    else:
+        features = "S" if metadata.get("enc_in", 1) == 0 else metadata.get("features", "MS")
 
     echo_setting = args.setting
     echo_data_key = f"echo_{echo_setting}"
@@ -301,29 +327,36 @@ def cmd_evaluate(args: argparse.Namespace) -> None:
             f"No images found in {image_root} for {args.dataset}/{args.setting}"
         )
     if eval_mode == "text_image" and not has_images:
-        print(f"Warning: images not found, falling back to text_only for {args.dataset}/{args.setting}")
-        eval_mode = "text_only"
+        raise FileNotFoundError(
+            f"Images not found in {image_root} for {args.dataset}/{args.setting}. "
+            f"Mode 'text_image' requires valid image files; use 'text_only' if images are unavailable."
+        )
 
     all_tensors = {"targets": [], "predictions": [], "q10": [], "q50": [], "q90": []}
     records = []
 
+    _devnull = open(_os.devnull, "w")
     for row in series_rows:
         csv_path = Path(row["csv_path"])
         series_id = row["series_id"]
-        if eval_mode in ("text_only", "text_image"):
-            outputs = _eval_predict(
-                pipeline, csv_path,
-                history=history, forecast=forecast,
-                image_root_path=image_root,
-                batch_size=args.batch_size,
-                image_column="image_path" if eval_mode == "text_image" else None,
-            )
+        if eval_mode in ("text_only", "text_image", "zero_shot"):
+            with redirect_stderr(_devnull):
+                outputs = _eval_predict(
+                    pipeline, csv_path,
+                    history=history, forecast=forecast,
+                    image_root_path=image_root,
+                    batch_size=args.batch_size,
+                    features=features,
+                    image_column="image_path" if eval_mode == "text_image" else None,
+                )
         else:  # image_only
-            outputs = _eval_image_only(
-                pipeline, csv_path,
-                history=history, forecast=forecast,
-                image_root_path=image_root, batch_size=args.batch_size,
-            )
+            with redirect_stderr(_devnull):
+                outputs = _eval_image_only(
+                    pipeline, csv_path,
+                    history=history, forecast=forecast,
+                    image_root_path=image_root, batch_size=args.batch_size,
+                    features=features,
+                )
         for key in all_tensors:
             all_tensors[key].append(outputs[key][..., 0])
         records.extend(collect_records(
@@ -356,6 +389,14 @@ def cmd_evaluate(args: argparse.Namespace) -> None:
             "device_map": device_map, "model_path": args.model_path,
         },
     )
+
+    # ── ECHO activity diagnostic ──────────────────────────────────────
+    echo_module = pipeline.model.echo if hasattr(pipeline.model, "echo") else None
+    if echo_module is not None:
+        rs = float(echo_module.residual_scale.data.item())
+        print(f"ECHO residual_scale = {rs:.6f}", flush=True)
+        if abs(rs) < 1e-8:
+            print("⚠️  residual_scale ≈ 0 → ECHO is a dead branch; modalities cannot differ.", flush=True)
 
 
 # ── Train subcommand ──────────────────────────────────────────────────────
@@ -421,7 +462,7 @@ def cmd_train(args: argparse.Namespace) -> None:
         lr_scheduler_type=args.lr_scheduler_type,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         output_dir=args.output_dir,
-        image_column="image_path",
+        image_column=None,  # Only set to "image_path" when images are available
         image_root_path=Path(metadata.get("image_root", ".")) if args.metadata else None,
         image_size=echo_config.get("vision_image_size", 64),
     )
@@ -460,7 +501,7 @@ def build_parser() -> argparse.ArgumentParser:
     eval_parser.add_argument("--setting", required=True)
     eval_parser.add_argument("--metadata", required=True)
     eval_parser.add_argument("--output-dir", required=True)
-    eval_parser.add_argument("--mode", required=True, choices=["text_only", "image_only", "text_image"])
+    eval_parser.add_argument("--mode", required=True, choices=["text_only", "image_only", "text_image", "zero_shot"])
     eval_parser.add_argument("--model-path", default="amazon/chronos-2")
     eval_parser.add_argument("--batch-size", type=int, default=64)
     eval_parser.add_argument("--echo-config", type=str, default=None)

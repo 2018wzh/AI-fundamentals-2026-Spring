@@ -77,7 +77,6 @@ def run(args: argparse.Namespace) -> None:
     controller_python = paths["controller_python"]
     chronos_python = paths["chronos_python"]
     aurora_python = paths["aurora_python"]
-    builder = project_root / "runners" / "fnspid_builder.py"
     fnspid_top_k = config.get("runtime", {}).get("fnspid_top_k") or 50
 
     steps = []

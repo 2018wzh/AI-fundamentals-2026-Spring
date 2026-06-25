@@ -71,14 +71,9 @@ def normalize_baseline_func(
 ) -> None:
     """Convert raw TSLib .npy outputs to normalized metrics.csv + predictions.parquet."""
     source_dir = Path(source_dir)
-    metrics_np = np.load(source_dir / "metrics.npy")
     pred_np = np.load(source_dir / "pred.npy", mmap_mode="r")
     true_np = np.load(source_dir / "true.npy", mmap_mode="r")
 
-    total_count = 0
-    sum_abs = 0.0
-    sum_sq = 0.0
-    sum_smape = 0.0
     schema = pa.schema(
         [
             ("dataset", pa.string()),
@@ -107,39 +102,21 @@ def normalize_baseline_func(
             setting=setting,
             series_id=series_id,
         ):
-            y_true_chunk = np.asarray(batch["y_true"], dtype=np.float64)
-            y_pred_chunk = np.asarray(batch["y_pred"], dtype=np.float64)
-            diff = y_true_chunk - y_pred_chunk
-            abs_diff = np.abs(diff)
-            total_count += diff.size
-            sum_abs += float(abs_diff.sum())
-            sum_sq += float(np.square(diff).sum())
-            denom = np.abs(y_true_chunk) + np.abs(y_pred_chunk) + 1e-8
-            sum_smape += float((2.0 * abs_diff / denom).sum())
             pq_writer.write_table(pa.Table.from_arrays(list(batch.values()), names=list(batch.keys())))
     finally:
         pq_writer.close()
 
-    mse = sum_sq / max(total_count, 1)
-    mae = sum_abs / max(total_count, 1)
-    metrics = {
-        "mode": mode,
-        "mae": float(mae),
-        "mse": float(mse),
-        "rmse": float(np.sqrt(mse)),
-        "smape": float(sum_smape / max(total_count, 1)),
-        "pinball_q10": None,
-        "pinball_q50": None,
-        "pinball_q90": None,
-        "directional_accuracy": None,
-        "f1_up_down": None,
-        "runtime_sec": float(runtime_sec),
-        "peak_vram_mb": None,
-    }
-    # Prefer metrics from recomputation, but sanity-check with raw mae/mse/rmse values from Time-Series-Library.
-    metrics["mae"] = float(metrics_np[0])
-    metrics["mse"] = float(metrics_np[1])
-    metrics["rmse"] = float(metrics_np[2])
+    # Compute metrics via common.compute_metrics so baseline rows share the same
+    # standardized metric space as zero-shot rows in the summary CSVs.
+    pred_df = pd.read_parquet(output_dir / "predictions.parquet", columns=["y_true", "y_pred"])
+    metrics = compute_metrics(
+        y_true=pred_df["y_true"].to_numpy(dtype=float),
+        y_pred=pred_df["y_pred"].to_numpy(dtype=float),
+        dataset=dataset,
+        runtime_sec=float(runtime_sec),
+        peak_vram_mb=None,
+        mode=mode,
+    )
     runtime = {"runtime_sec": runtime_sec, "mode": mode, "source_dir": str(source_dir)}
     metrics_row = {"dataset": dataset, "model": model, "setting": setting}
     metrics_row.update(metrics)

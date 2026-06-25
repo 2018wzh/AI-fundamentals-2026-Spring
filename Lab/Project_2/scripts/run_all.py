@@ -105,7 +105,7 @@ def run(args: argparse.Namespace) -> int:
 
     started = time.perf_counter()
 
-    with tqdm.tqdm(total=len(stages_to_run), desc="Overall progress", unit="stage", ncols=100) as pbar:
+    with tqdm.tqdm(total=len(stages_to_run), desc="Overall progress", unit="stage", ncols=100, mininterval=2.0) as pbar:
         for stage_id in stages_to_run:
             module, desc = STAGES[stage_id]
             pbar.set_description(f"Stage {stage_id}: {desc[:40]}")

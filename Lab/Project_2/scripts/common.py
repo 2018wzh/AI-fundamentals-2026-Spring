@@ -18,7 +18,7 @@ import tqdm
 # ── Constants ──────────────────────────────────────────────────────────────
 
 BASELINE_MODELS = {"DLinear", "PatchTST", "TimesNet"}
-FINANCIAL_DATASETS = {"fnspid", "oiletf"}
+FINANCIAL_DATASETS = {"fnspid", "oiletf", "oiletf_intraday"}
 DEFAULT_CONFIG_PATH = Path("./configs/experiments.yaml")
 
 
@@ -556,6 +556,7 @@ def run_chronos_experiment(
     run_command([
         str(chronos_python),
         str(runner_path),
+        "evaluate",
         "--dataset", dataset,
         "--setting", setting,
         "--metadata", str(metadata_path),
@@ -696,7 +697,7 @@ def make_progress(
     desc: str = "",
     unit: str = "task",
 ) -> tqdm.tqdm:
-    return tqdm.tqdm(total=total, desc=desc, unit=unit, ncols=100, leave=True)
+    return tqdm.tqdm(total=total, desc=desc, unit=unit, ncols=100, leave=True, mininterval=2.0)
 
 
 def short_config_desc(config: dict[str, Any]) -> str:

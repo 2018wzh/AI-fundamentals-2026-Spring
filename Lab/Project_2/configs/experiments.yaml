@@ -25,7 +25,47 @@
     "chronos2_model_id": "amazon/chronos-2",
     "chronos2_checkpoint": "/home/zhw/chronos-forecasting/checkpoints/amazon_chronos_2",
     "chronos2_echo_model_path": null,
-    "chronos2_echo_config": "{\"vision_model_name_or_path\":\"google/vit-base-patch16-224\",\"freeze_vision_backbone\":true,\"reconstruction_loss_weight\":0.1}"
+    "chronos2_echo_config": "{\"vision_model_name_or_path\":\"google/vit-base-patch16-224\",\"freeze_vision_backbone\":true,\"reconstruction_loss_weight\":0.5,\"residual_scale_init\":1.0,\"use_pseudo_image\":false,\"guard_against_baseline\":false}",
+    "echo_training_lr": "5e-6",
+    "echo_training_steps": "5000",
+    "echo_warmup_steps": "500",
+    "echo_training_overrides": {
+      "fnspid_H60_F1": {
+        "lr": "5e-7",
+        "steps": "5000",
+        "warmup": "1000",
+        "grad_accum": "1",
+        "batch_size": "16"
+      },
+      "oiletf_H60_F1": {
+        "lr": "5e-8",
+        "steps": "5000",
+        "warmup": "500",
+        "grad_accum": "4",
+        "batch_size": "4"
+      },
+      "oiletf_H120_F5": {
+        "lr": "5e-8",
+        "steps": "5000",
+        "warmup": "500",
+        "grad_accum": "4",
+        "batch_size": "4"
+      },
+      "oiletf_intraday_H60_F1": {
+        "lr": "1e-7",
+        "steps": "5000",
+        "warmup": "500",
+        "grad_accum": "4",
+        "batch_size": "4"
+      },
+      "oiletf_intraday_H120_F7": {
+        "lr": "1e-7",
+        "steps": "5000",
+        "warmup": "500",
+        "grad_accum": "4",
+        "batch_size": "4"
+      }
+    }
   },
   "datasets": {
     "electricity": {
@@ -75,6 +115,266 @@
           "label_len": 60
         }
       }
+    },
+    "oiletf_intraday": {
+      "data_dir": "/home/zhw/Project_2/data/oiletf_intraday",
+      "metadata": "/home/zhw/Project_2/data/oiletf_intraday/processed/metadata.json",
+      "settings": {
+        "H60_F1": {
+          "history": 60,
+          "forecast": 1,
+          "label_len": 30
+        },
+        "H120_F7": {
+          "history": 120,
+          "forecast": 7,
+          "label_len": 60
+        }
+      }
+    },
+    "energy": {
+      "data_dir": "/home/zhw/Project_2/data/energy",
+      "metadata": "/home/zhw/Project_2/data/energy/processed/metadata.json",
+      "settings": {
+        "H60_F1": {
+          "history": 60,
+          "forecast": 1,
+          "label_len": 30
+        },
+        "H120_F5": {
+          "history": 120,
+          "forecast": 5,
+          "label_len": 60
+        },
+        "H1056_F12": {
+          "history": 1056,
+          "forecast": 12,
+          "label_len": 48
+        },
+        "H1056_F24": {
+          "history": 1056,
+          "forecast": 24,
+          "label_len": 48
+        },
+        "H1056_F36": {
+          "history": 1056,
+          "forecast": 36,
+          "label_len": 48
+        },
+        "H1056_F48": {
+          "history": 1056,
+          "forecast": 48,
+          "label_len": 48
+        }
+      }
+    },
+    "agriculture": {
+      "data_dir": "/home/zhw/Project_2/data/agriculture",
+      "metadata": "/home/zhw/Project_2/data/agriculture/processed/metadata.json",
+      "settings": {
+        "H192_F6": {
+          "history": 192,
+          "forecast": 6,
+          "label_len": 48
+        },
+        "H192_F8": {
+          "history": 192,
+          "forecast": 8,
+          "label_len": 48
+        },
+        "H192_F10": {
+          "history": 192,
+          "forecast": 10,
+          "label_len": 48
+        },
+        "H192_F12": {
+          "history": 192,
+          "forecast": 12,
+          "label_len": 48
+        }
+      }
+    },
+    "climate": {
+      "data_dir": "/home/zhw/Project_2/data/climate",
+      "metadata": "/home/zhw/Project_2/data/climate/processed/metadata.json",
+      "settings": {
+        "H192_F6": {
+          "history": 192,
+          "forecast": 6,
+          "label_len": 48
+        },
+        "H192_F8": {
+          "history": 192,
+          "forecast": 8,
+          "label_len": 48
+        },
+        "H192_F10": {
+          "history": 192,
+          "forecast": 10,
+          "label_len": 48
+        },
+        "H192_F12": {
+          "history": 192,
+          "forecast": 12,
+          "label_len": 48
+        }
+      }
+    },
+    "economy": {
+      "data_dir": "/home/zhw/Project_2/data/economy",
+      "metadata": "/home/zhw/Project_2/data/economy/processed/metadata.json",
+      "settings": {
+        "H192_F6": {
+          "history": 192,
+          "forecast": 6,
+          "label_len": 48
+        },
+        "H192_F8": {
+          "history": 192,
+          "forecast": 8,
+          "label_len": 48
+        },
+        "H192_F10": {
+          "history": 192,
+          "forecast": 10,
+          "label_len": 48
+        },
+        "H192_F12": {
+          "history": 192,
+          "forecast": 12,
+          "label_len": 48
+        }
+      }
+    },
+    "environment": {
+      "data_dir": "/home/zhw/Project_2/data/environment",
+      "metadata": "/home/zhw/Project_2/data/environment/processed/metadata.json",
+      "settings": {
+        "H528_F48": {
+          "history": 528,
+          "forecast": 48,
+          "label_len": 48
+        },
+        "H528_F96": {
+          "history": 528,
+          "forecast": 96,
+          "label_len": 48
+        },
+        "H528_F192": {
+          "history": 528,
+          "forecast": 192,
+          "label_len": 48
+        },
+        "H528_F336": {
+          "history": 528,
+          "forecast": 336,
+          "label_len": 48
+        }
+      }
+    },
+    "health_afr": {
+      "data_dir": "/home/zhw/Project_2/data/health_afr",
+      "metadata": "/home/zhw/Project_2/data/health_afr/processed/metadata.json",
+      "settings": {
+        "H96_F12": {
+          "history": 96,
+          "forecast": 12,
+          "label_len": 48
+        },
+        "H96_F24": {
+          "history": 96,
+          "forecast": 24,
+          "label_len": 48
+        },
+        "H96_F36": {
+          "history": 96,
+          "forecast": 36,
+          "label_len": 48
+        },
+        "H96_F48": {
+          "history": 96,
+          "forecast": 48,
+          "label_len": 48
+        }
+      }
+    },
+    "security": {
+      "data_dir": "/home/zhw/Project_2/data/security",
+      "metadata": "/home/zhw/Project_2/data/security/processed/metadata.json",
+      "settings": {
+        "H220_F6": {
+          "history": 220,
+          "forecast": 6,
+          "label_len": 24
+        },
+        "H220_F8": {
+          "history": 220,
+          "forecast": 8,
+          "label_len": 24
+        },
+        "H220_F10": {
+          "history": 220,
+          "forecast": 10,
+          "label_len": 24
+        },
+        "H220_F12": {
+          "history": 220,
+          "forecast": 12,
+          "label_len": 24
+        }
+      }
+    },
+    "socialgood": {
+      "data_dir": "/home/zhw/Project_2/data/socialgood",
+      "metadata": "/home/zhw/Project_2/data/socialgood/processed/metadata.json",
+      "settings": {
+        "H192_F6": {
+          "history": 192,
+          "forecast": 6,
+          "label_len": 48
+        },
+        "H192_F8": {
+          "history": 192,
+          "forecast": 8,
+          "label_len": 48
+        },
+        "H192_F10": {
+          "history": 192,
+          "forecast": 10,
+          "label_len": 48
+        },
+        "H192_F12": {
+          "history": 192,
+          "forecast": 12,
+          "label_len": 48
+        }
+      }
+    },
+    "traffic": {
+      "data_dir": "/home/zhw/Project_2/data/traffic",
+      "metadata": "/home/zhw/Project_2/data/traffic/processed/metadata.json",
+      "settings": {
+        "H96_F6": {
+          "history": 96,
+          "forecast": 6,
+          "label_len": 48
+        },
+        "H96_F8": {
+          "history": 96,
+          "forecast": 8,
+          "label_len": 48
+        },
+        "H96_F10": {
+          "history": 96,
+          "forecast": 10,
+          "label_len": 48
+        },
+        "H96_F12": {
+          "history": 96,
+          "forecast": 12,
+          "label_len": 48
+        }
+      }
     }
   },
   "baseline_defaults": {
@@ -121,54 +421,915 @@
     }
   },
   "execution_plan": [
-    { "dataset": "electricity", "model": "DLinear", "setting": "H336_F96" },
-    { "dataset": "electricity", "model": "PatchTST", "setting": "H336_F96" },
-    { "dataset": "electricity", "model": "TimesNet", "setting": "H336_F96" },
-    { "dataset": "electricity", "model": "Chronos-2", "setting": "H336_F96" },
-    { "dataset": "electricity", "model": "Aurora", "setting": "H336_F96" },
-
-    { "dataset": "electricity", "model": "DLinear", "setting": "H720_F192" },
-    { "dataset": "electricity", "model": "PatchTST", "setting": "H720_F192" },
-    { "dataset": "electricity", "model": "TimesNet", "setting": "H720_F192" },
-    { "dataset": "electricity", "model": "Chronos-2", "setting": "H720_F192" },
-    { "dataset": "electricity", "model": "Aurora", "setting": "H720_F192" },
-
-    { "dataset": "fnspid", "model": "Chronos-2-ECHO", "setting": "H60_F1", "mode": "training" },
-    { "dataset": "fnspid", "model": "DLinear", "setting": "H60_F1" },
-    { "dataset": "fnspid", "model": "PatchTST", "setting": "H60_F1" },
-    { "dataset": "fnspid", "model": "TimesNet", "setting": "H60_F1" },
-    { "dataset": "fnspid", "model": "Chronos-2", "setting": "H60_F1" },
-    { "dataset": "fnspid", "model": "Aurora", "setting": "H60_F1" },
-    { "dataset": "fnspid", "model": "Chronos-2-ECHO", "setting": "H60_F1", "mode": "text_only" },
-    { "dataset": "fnspid", "model": "Chronos-2-ECHO", "setting": "H60_F1", "mode": "text_image" },
-
-    { "dataset": "fnspid", "model": "Chronos-2-ECHO", "setting": "H120_F5", "mode": "training" },
-    { "dataset": "fnspid", "model": "DLinear", "setting": "H120_F5" },
-    { "dataset": "fnspid", "model": "PatchTST", "setting": "H120_F5" },
-    { "dataset": "fnspid", "model": "TimesNet", "setting": "H120_F5" },
-    { "dataset": "fnspid", "model": "Chronos-2", "setting": "H120_F5" },
-    { "dataset": "fnspid", "model": "Aurora", "setting": "H120_F5" },
-    { "dataset": "fnspid", "model": "Chronos-2-ECHO", "setting": "H120_F5", "mode": "text_only" },
-    { "dataset": "fnspid", "model": "Chronos-2-ECHO", "setting": "H120_F5", "mode": "text_image" },
-
-    { "dataset": "oiletf", "model": "Chronos-2-ECHO", "setting": "H60_F1", "mode": "training" },
-    { "dataset": "oiletf", "model": "DLinear", "setting": "H60_F1" },
-    { "dataset": "oiletf", "model": "PatchTST", "setting": "H60_F1" },
-    { "dataset": "oiletf", "model": "TimesNet", "setting": "H60_F1" },
-    { "dataset": "oiletf", "model": "Chronos-2", "setting": "H60_F1" },
-    { "dataset": "oiletf", "model": "Aurora", "setting": "H60_F1" },
-    { "dataset": "oiletf", "model": "Chronos-2-ECHO", "setting": "H60_F1", "mode": "text_only" },
-    { "dataset": "oiletf", "model": "Chronos-2-ECHO", "setting": "H60_F1", "mode": "image_only" },
-    { "dataset": "oiletf", "model": "Chronos-2-ECHO", "setting": "H60_F1", "mode": "text_image" },
-
-    { "dataset": "oiletf", "model": "Chronos-2-ECHO", "setting": "H120_F5", "mode": "training" },
-    { "dataset": "oiletf", "model": "DLinear", "setting": "H120_F5" },
-    { "dataset": "oiletf", "model": "PatchTST", "setting": "H120_F5" },
-    { "dataset": "oiletf", "model": "TimesNet", "setting": "H120_F5" },
-    { "dataset": "oiletf", "model": "Chronos-2", "setting": "H120_F5" },
-    { "dataset": "oiletf", "model": "Aurora", "setting": "H120_F5" },
-    { "dataset": "oiletf", "model": "Chronos-2-ECHO", "setting": "H120_F5", "mode": "text_only" },
-    { "dataset": "oiletf", "model": "Chronos-2-ECHO", "setting": "H120_F5", "mode": "image_only" },
-    { "dataset": "oiletf", "model": "Chronos-2-ECHO", "setting": "H120_F5", "mode": "text_image" }
+    {
+      "dataset": "electricity",
+      "model": "DLinear",
+      "setting": "H336_F96"
+    },
+    {
+      "dataset": "electricity",
+      "model": "PatchTST",
+      "setting": "H336_F96"
+    },
+    {
+      "dataset": "electricity",
+      "model": "TimesNet",
+      "setting": "H336_F96"
+    },
+    {
+      "dataset": "electricity",
+      "model": "Chronos-2",
+      "setting": "H336_F96"
+    },
+    {
+      "dataset": "electricity",
+      "model": "Aurora",
+      "setting": "H336_F96"
+    },
+    {
+      "dataset": "electricity",
+      "model": "DLinear",
+      "setting": "H720_F192"
+    },
+    {
+      "dataset": "electricity",
+      "model": "PatchTST",
+      "setting": "H720_F192"
+    },
+    {
+      "dataset": "electricity",
+      "model": "TimesNet",
+      "setting": "H720_F192"
+    },
+    {
+      "dataset": "electricity",
+      "model": "Chronos-2",
+      "setting": "H720_F192"
+    },
+    {
+      "dataset": "electricity",
+      "model": "Aurora",
+      "setting": "H720_F192"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "Chronos-2-ECHO",
+      "setting": "H60_F1",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "Chronos-2-ECHO",
+      "setting": "H60_F1",
+      "mode": "training"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "DLinear",
+      "setting": "H60_F1"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "PatchTST",
+      "setting": "H60_F1"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "TimesNet",
+      "setting": "H60_F1"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "Chronos-2",
+      "setting": "H60_F1",
+      "mode": "training"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "Chronos-2",
+      "setting": "H60_F1"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "Aurora",
+      "setting": "H60_F1"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "Chronos-2-ECHO",
+      "setting": "H60_F1",
+      "mode": "text_only"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "Chronos-2-ECHO",
+      "setting": "H120_F5",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "Chronos-2-ECHO",
+      "setting": "H120_F5",
+      "mode": "training"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "DLinear",
+      "setting": "H120_F5"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "PatchTST",
+      "setting": "H120_F5"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "TimesNet",
+      "setting": "H120_F5"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "Chronos-2",
+      "setting": "H120_F5"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "Aurora",
+      "setting": "H120_F5"
+    },
+    {
+      "dataset": "fnspid",
+      "model": "Chronos-2-ECHO",
+      "setting": "H120_F5",
+      "mode": "text_only"
+    },
+    {
+      "dataset": "oiletf",
+      "model": "Chronos-2-ECHO",
+      "setting": "H60_F1",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "oiletf",
+      "model": "Chronos-2-ECHO",
+      "setting": "H60_F1",
+      "mode": "training"
+    },
+    {
+      "dataset": "oiletf",
+      "model": "Chronos-2-ECHO",
+      "setting": "H60_F1",
+      "mode": "text_only"
+    },
+    {
+      "dataset": "oiletf",
+      "model": "Chronos-2",
+      "setting": "H60_F1"
+    },
+    {
+      "dataset": "oiletf",
+      "model": "Aurora",
+      "setting": "H60_F1"
+    },
+    {
+      "dataset": "oiletf",
+      "model": "Chronos-2-ECHO",
+      "setting": "H120_F5",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "oiletf",
+      "model": "Chronos-2-ECHO",
+      "setting": "H120_F5",
+      "mode": "training"
+    },
+    {
+      "dataset": "oiletf",
+      "model": "Chronos-2-ECHO",
+      "setting": "H120_F5",
+      "mode": "text_only"
+    },
+    {
+      "dataset": "oiletf",
+      "model": "Chronos-2",
+      "setting": "H120_F5"
+    },
+    {
+      "dataset": "oiletf",
+      "model": "Aurora",
+      "setting": "H120_F5"
+    },
+    {
+      "dataset": "oiletf_intraday",
+      "model": "Chronos-2-ECHO",
+      "setting": "H60_F1",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "oiletf_intraday",
+      "model": "Chronos-2-ECHO",
+      "setting": "H60_F1",
+      "mode": "training"
+    },
+    {
+      "dataset": "oiletf_intraday",
+      "model": "Chronos-2-ECHO",
+      "setting": "H60_F1",
+      "mode": "text_only"
+    },
+    {
+      "dataset": "oiletf_intraday",
+      "model": "Chronos-2",
+      "setting": "H60_F1"
+    },
+    {
+      "dataset": "oiletf_intraday",
+      "model": "Aurora",
+      "setting": "H60_F1"
+    },
+    {
+      "dataset": "oiletf_intraday",
+      "model": "Chronos-2-ECHO",
+      "setting": "H120_F7",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "oiletf_intraday",
+      "model": "Chronos-2-ECHO",
+      "setting": "H120_F7",
+      "mode": "training"
+    },
+    {
+      "dataset": "oiletf_intraday",
+      "model": "Chronos-2-ECHO",
+      "setting": "H120_F7",
+      "mode": "text_only"
+    },
+    {
+      "dataset": "oiletf_intraday",
+      "model": "Chronos-2",
+      "setting": "H120_F7"
+    },
+    {
+      "dataset": "oiletf_intraday",
+      "model": "Aurora",
+      "setting": "H120_F7"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2-ECHO",
+      "setting": "H60_F1",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2-ECHO",
+      "setting": "H60_F1",
+      "mode": "training"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2-ECHO",
+      "setting": "H60_F1",
+      "mode": "text_only"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2",
+      "setting": "H60_F1"
+    },
+    {
+      "dataset": "energy",
+      "model": "Aurora",
+      "setting": "H60_F1"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2-ECHO",
+      "setting": "H120_F5",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2-ECHO",
+      "setting": "H120_F5",
+      "mode": "training"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2-ECHO",
+      "setting": "H120_F5",
+      "mode": "text_only"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2",
+      "setting": "H120_F5"
+    },
+    {
+      "dataset": "energy",
+      "model": "Aurora",
+      "setting": "H120_F5"
+    },
+    {
+      "dataset": "agriculture",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F6",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "agriculture",
+      "model": "Chronos-2",
+      "setting": "H192_F6"
+    },
+    {
+      "dataset": "agriculture",
+      "model": "Aurora",
+      "setting": "H192_F6"
+    },
+    {
+      "dataset": "agriculture",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F8",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "agriculture",
+      "model": "Chronos-2",
+      "setting": "H192_F8"
+    },
+    {
+      "dataset": "agriculture",
+      "model": "Aurora",
+      "setting": "H192_F8"
+    },
+    {
+      "dataset": "agriculture",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F10",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "agriculture",
+      "model": "Chronos-2",
+      "setting": "H192_F10"
+    },
+    {
+      "dataset": "agriculture",
+      "model": "Aurora",
+      "setting": "H192_F10"
+    },
+    {
+      "dataset": "agriculture",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F12",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "agriculture",
+      "model": "Chronos-2",
+      "setting": "H192_F12"
+    },
+    {
+      "dataset": "agriculture",
+      "model": "Aurora",
+      "setting": "H192_F12"
+    },
+    {
+      "dataset": "climate",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F6",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "climate",
+      "model": "Chronos-2",
+      "setting": "H192_F6"
+    },
+    {
+      "dataset": "climate",
+      "model": "Aurora",
+      "setting": "H192_F6"
+    },
+    {
+      "dataset": "climate",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F8",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "climate",
+      "model": "Chronos-2",
+      "setting": "H192_F8"
+    },
+    {
+      "dataset": "climate",
+      "model": "Aurora",
+      "setting": "H192_F8"
+    },
+    {
+      "dataset": "climate",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F10",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "climate",
+      "model": "Chronos-2",
+      "setting": "H192_F10"
+    },
+    {
+      "dataset": "climate",
+      "model": "Aurora",
+      "setting": "H192_F10"
+    },
+    {
+      "dataset": "climate",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F12",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "climate",
+      "model": "Chronos-2",
+      "setting": "H192_F12"
+    },
+    {
+      "dataset": "climate",
+      "model": "Aurora",
+      "setting": "H192_F12"
+    },
+    {
+      "dataset": "economy",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F6",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "economy",
+      "model": "Chronos-2",
+      "setting": "H192_F6"
+    },
+    {
+      "dataset": "economy",
+      "model": "Aurora",
+      "setting": "H192_F6"
+    },
+    {
+      "dataset": "economy",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F8",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "economy",
+      "model": "Chronos-2",
+      "setting": "H192_F8"
+    },
+    {
+      "dataset": "economy",
+      "model": "Aurora",
+      "setting": "H192_F8"
+    },
+    {
+      "dataset": "economy",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F10",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "economy",
+      "model": "Chronos-2",
+      "setting": "H192_F10"
+    },
+    {
+      "dataset": "economy",
+      "model": "Aurora",
+      "setting": "H192_F10"
+    },
+    {
+      "dataset": "economy",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F12",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "economy",
+      "model": "Chronos-2",
+      "setting": "H192_F12"
+    },
+    {
+      "dataset": "economy",
+      "model": "Aurora",
+      "setting": "H192_F12"
+    },
+    {
+      "dataset": "environment",
+      "model": "Chronos-2-ECHO",
+      "setting": "H528_F48",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "environment",
+      "model": "Chronos-2",
+      "setting": "H528_F48"
+    },
+    {
+      "dataset": "environment",
+      "model": "Aurora",
+      "setting": "H528_F48"
+    },
+    {
+      "dataset": "environment",
+      "model": "Chronos-2-ECHO",
+      "setting": "H528_F96",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "environment",
+      "model": "Chronos-2",
+      "setting": "H528_F96"
+    },
+    {
+      "dataset": "environment",
+      "model": "Aurora",
+      "setting": "H528_F96"
+    },
+    {
+      "dataset": "environment",
+      "model": "Chronos-2-ECHO",
+      "setting": "H528_F192",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "environment",
+      "model": "Chronos-2",
+      "setting": "H528_F192"
+    },
+    {
+      "dataset": "environment",
+      "model": "Aurora",
+      "setting": "H528_F192"
+    },
+    {
+      "dataset": "environment",
+      "model": "Chronos-2-ECHO",
+      "setting": "H528_F336",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "environment",
+      "model": "Chronos-2",
+      "setting": "H528_F336"
+    },
+    {
+      "dataset": "environment",
+      "model": "Aurora",
+      "setting": "H528_F336"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Chronos-2-ECHO",
+      "setting": "H60_F1",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Chronos-2-ECHO",
+      "setting": "H120_F5",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Chronos-2-ECHO",
+      "setting": "H60_F1",
+      "mode": "training"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Chronos-2-ECHO",
+      "setting": "H120_F5",
+      "mode": "training"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Chronos-2-ECHO",
+      "setting": "H96_F12",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Chronos-2",
+      "setting": "H96_F12"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Aurora",
+      "setting": "H96_F12"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Chronos-2-ECHO",
+      "setting": "H96_F24",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Chronos-2",
+      "setting": "H96_F24"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Aurora",
+      "setting": "H96_F24"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Chronos-2-ECHO",
+      "setting": "H96_F36",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Chronos-2",
+      "setting": "H96_F36"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Aurora",
+      "setting": "H96_F36"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Chronos-2-ECHO",
+      "setting": "H96_F48",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Chronos-2",
+      "setting": "H96_F48"
+    },
+    {
+      "dataset": "health_afr",
+      "model": "Aurora",
+      "setting": "H96_F48"
+    },
+    {
+      "dataset": "security",
+      "model": "Chronos-2-ECHO",
+      "setting": "H220_F6",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "security",
+      "model": "Chronos-2",
+      "setting": "H220_F6"
+    },
+    {
+      "dataset": "security",
+      "model": "Aurora",
+      "setting": "H220_F6"
+    },
+    {
+      "dataset": "security",
+      "model": "Chronos-2-ECHO",
+      "setting": "H220_F8",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "security",
+      "model": "Chronos-2",
+      "setting": "H220_F8"
+    },
+    {
+      "dataset": "security",
+      "model": "Aurora",
+      "setting": "H220_F8"
+    },
+    {
+      "dataset": "security",
+      "model": "Chronos-2-ECHO",
+      "setting": "H220_F10",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "security",
+      "model": "Chronos-2",
+      "setting": "H220_F10"
+    },
+    {
+      "dataset": "security",
+      "model": "Aurora",
+      "setting": "H220_F10"
+    },
+    {
+      "dataset": "security",
+      "model": "Chronos-2-ECHO",
+      "setting": "H220_F12",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "security",
+      "model": "Chronos-2",
+      "setting": "H220_F12"
+    },
+    {
+      "dataset": "security",
+      "model": "Aurora",
+      "setting": "H220_F12"
+    },
+    {
+      "dataset": "socialgood",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F6",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "socialgood",
+      "model": "Chronos-2",
+      "setting": "H192_F6"
+    },
+    {
+      "dataset": "socialgood",
+      "model": "Aurora",
+      "setting": "H192_F6"
+    },
+    {
+      "dataset": "socialgood",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F8",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "socialgood",
+      "model": "Chronos-2",
+      "setting": "H192_F8"
+    },
+    {
+      "dataset": "socialgood",
+      "model": "Aurora",
+      "setting": "H192_F8"
+    },
+    {
+      "dataset": "socialgood",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F10",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "socialgood",
+      "model": "Chronos-2",
+      "setting": "H192_F10"
+    },
+    {
+      "dataset": "socialgood",
+      "model": "Aurora",
+      "setting": "H192_F10"
+    },
+    {
+      "dataset": "socialgood",
+      "model": "Chronos-2-ECHO",
+      "setting": "H192_F12",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "socialgood",
+      "model": "Chronos-2",
+      "setting": "H192_F12"
+    },
+    {
+      "dataset": "socialgood",
+      "model": "Aurora",
+      "setting": "H192_F12"
+    },
+    {
+      "dataset": "traffic",
+      "model": "Chronos-2-ECHO",
+      "setting": "H96_F6",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "traffic",
+      "model": "Chronos-2",
+      "setting": "H96_F6"
+    },
+    {
+      "dataset": "traffic",
+      "model": "Aurora",
+      "setting": "H96_F6"
+    },
+    {
+      "dataset": "traffic",
+      "model": "Chronos-2-ECHO",
+      "setting": "H96_F8",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "traffic",
+      "model": "Chronos-2",
+      "setting": "H96_F8"
+    },
+    {
+      "dataset": "traffic",
+      "model": "Aurora",
+      "setting": "H96_F8"
+    },
+    {
+      "dataset": "traffic",
+      "model": "Chronos-2-ECHO",
+      "setting": "H96_F10",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "traffic",
+      "model": "Chronos-2",
+      "setting": "H96_F10"
+    },
+    {
+      "dataset": "traffic",
+      "model": "Aurora",
+      "setting": "H96_F10"
+    },
+    {
+      "dataset": "traffic",
+      "model": "Chronos-2-ECHO",
+      "setting": "H96_F12",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "traffic",
+      "model": "Chronos-2",
+      "setting": "H96_F12"
+    },
+    {
+      "dataset": "traffic",
+      "model": "Aurora",
+      "setting": "H96_F12"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2-ECHO",
+      "setting": "H1056_F12",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2",
+      "setting": "H1056_F12"
+    },
+    {
+      "dataset": "energy",
+      "model": "Aurora",
+      "setting": "H1056_F12"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2-ECHO",
+      "setting": "H1056_F24",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2",
+      "setting": "H1056_F24"
+    },
+    {
+      "dataset": "energy",
+      "model": "Aurora",
+      "setting": "H1056_F24"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2-ECHO",
+      "setting": "H1056_F36",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2",
+      "setting": "H1056_F36"
+    },
+    {
+      "dataset": "energy",
+      "model": "Aurora",
+      "setting": "H1056_F36"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2-ECHO",
+      "setting": "H1056_F48",
+      "mode": "zero_shot"
+    },
+    {
+      "dataset": "energy",
+      "model": "Chronos-2",
+      "setting": "H1056_F48"
+    },
+    {
+      "dataset": "energy",
+      "model": "Aurora",
+      "setting": "H1056_F48"
+    }
   ]
 }

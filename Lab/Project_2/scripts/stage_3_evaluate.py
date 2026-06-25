@@ -50,6 +50,51 @@ from scripts.common import (
 )
 
 
+def _resolve_echo_training_params(config: dict, task: dict) -> list[str]:
+    """Resolve Chronos-2-ECHO training hyperparameters with per-dataset overrides."""
+    ext = config.get("external_assets", {})
+    key = f"{task['dataset']}_{task['setting']}"
+    overrides = ext.get("echo_training_overrides", {}).get(key, {})
+    lr = overrides.get("lr", ext.get("echo_training_lr", "2e-5"))
+    steps = overrides.get("steps", ext.get("echo_training_steps", "20000"))
+    warmup = overrides.get("warmup", ext.get("echo_warmup_steps", "2000"))
+    grad_accum = overrides.get("grad_accum", ext.get("echo_grad_accum", "1"))
+    batch_size = overrides.get("batch_size", "8")
+    # Auto-detect features from metadata: "S" when no covariates
+    dataset_config = config["datasets"][task["dataset"]]
+    metadata = load_json(dataset_config["metadata"])
+    features = "S" if metadata.get("enc_in", 1) == 0 else metadata.get("features", "MS")
+    # Few-shot mode: 20% steps + lora finetuning + cosine LR
+    if task.get("mode") == "fewshot":
+        steps = str(max(100, int(int(steps) * 0.2)))
+        warmup = str(max(20, int(int(warmup) * 0.2)))
+        lr = "5e-6"  # same LR as full training
+        finetune_mode = "lora"
+        lr_scheduler = "cosine"
+        batch_size = "8"
+        return [
+            "--batch-size", str(batch_size),
+            "--num-steps", str(steps),
+            "--warmup-steps", str(warmup),
+            "--gradient-accumulation-steps", str(grad_accum),
+            "--echo-config", ext.get("chronos2_echo_config", "{}"),
+            "--finetune-mode", finetune_mode,
+            "--learning-rate", str(lr),
+            "--lr-scheduler-type", lr_scheduler,
+            "--features", features,
+        ]
+    return [
+        "--batch-size", str(batch_size),
+        "--num-steps", str(steps),
+        "--warmup-steps", str(warmup),
+        "--gradient-accumulation-steps", str(grad_accum),
+        "--echo-config", ext.get("chronos2_echo_config", "{}"),
+        "--finetune-mode", "lora",
+        "--learning-rate", str(lr),
+        "--features", features,
+    ]
+
+
 def run_baseline_single_csv(
     *,
     args: argparse.Namespace,
@@ -224,7 +269,7 @@ def run_evaluate(args: argparse.Namespace) -> None:
     failed_count = 0
     started_at = time.perf_counter()
 
-    with tqdm.tqdm(total=len(selected_tasks), desc="Evaluating", unit="task", ncols=100) as pbar:
+    with tqdm.tqdm(total=len(selected_tasks), desc="Evaluating", unit="task", ncols=100, mininterval=2.0) as pbar:
         for index, task in enumerate(selected_tasks, start=1):
             task_label = format_task_label(task)
             output_dir = task_output_dir(project_root, task)
@@ -273,28 +318,58 @@ def run_evaluate(args: argparse.Namespace) -> None:
                         )
 
                 elif model == "Chronos-2":
+                    mode = task.get("mode", "")
                     chronos_model = config["external_assets"]["chronos2_model_id"]
                     ckpt_key = "chronos2_checkpoint"
                     if ckpt_key in config["external_assets"] and Path(config["external_assets"][ckpt_key]).exists():
                         chronos_model = config["external_assets"][ckpt_key]
-                    run_chronos_experiment(
-                        chronos_python=paths["chronos_python"],
-                        runner_path=project_root / "runners" / "chronos_runner.py",
-                        dataset=task["dataset"],
-                        setting=task_run_key(task),
-                        metadata_path=config["datasets"][task["dataset"]]["metadata"],
-                        output_dir=output_dir,
-                        model_id=chronos_model,
-                        batch_size=128,
-                        logger=pbar,
-                    )
+
+                    if mode == "training":
+                        chronos_model = chronos_model or "amazon/chronos-2"
+                        run_command([
+                            str(paths["chronos_python"]),
+                            str(project_root / "runners" / "chronos_runner.py"),
+                            "train",
+                            "--dataset", task["dataset"],
+                            "--setting", task["setting"],
+                            "--metadata", str(config["datasets"][task["dataset"]]["metadata"]),
+                            "--output-dir", str(output_dir),
+                            "--model-id", chronos_model,
+                            "--finetune-mode", "lora",
+                            "--learning-rate", str(float(config["external_assets"].get("echo_training_lr", "5e-6"))),
+                            "--num-steps", str(int(config["external_assets"].get("echo_training_steps", "20000"))),
+                        ], logger=pbar)
+                    else:
+                        # Auto-detect finetuned checkpoint
+                        ft_ckpt = (
+                            project_root / "results" / task["dataset"] / "Chronos-2"
+                            / f"{task['setting']}_training" / "finetuned-ckpt"
+                        )
+                        eval_model = chronos_model
+                        if ft_ckpt.is_dir() and (ft_ckpt / "adapter_model.safetensors").is_file():
+                            eval_model = str(ft_ckpt)
+                            pbar.write(f"  Using finetuned checkpoint: {eval_model}")
+                        else:
+                            pbar.write(f"  Using base model: {eval_model}")
+
+                        run_chronos_experiment(
+                            chronos_python=paths["chronos_python"],
+                            runner_path=project_root / "runners" / "chronos_runner.py",
+                            dataset=task["dataset"],
+                            setting=task_run_key(task),
+                            metadata_path=config["datasets"][task["dataset"]]["metadata"],
+                            output_dir=output_dir,
+                            model_id=eval_model,
+                            batch_size=128,
+                            logger=pbar,
+                        )
 
                 elif model == "Chronos-2-ECHO":
                     mode = task.get("mode", "text_only")
                     echo_model = config["external_assets"].get("chronos2_echo_model_path")
                     echo_cfg = config["external_assets"].get("chronos2_echo_config")
 
-                    if mode == "training":
+                    if mode in ("training", "fewshot"):
                         # Fine-tune Echo adapter; the runner resolves manifest CSVs internally.
                         dataset_config = config["datasets"][task["dataset"]]
                         metadata = load_json(dataset_config["metadata"])
@@ -315,29 +390,52 @@ def run_evaluate(args: argparse.Namespace) -> None:
                             "--output-dir", str(output_dir),
                             "--model-path", echo_model,
                             "--data-path", str(data_path),
-                            "--batch-size", "8",
-                            "--num-steps", "20000",
-                            "--warmup-steps", "2000",
-                            "--echo-config", echo_cfg if echo_cfg else "{}",
-                            "--finetune-mode", "lora",
-                            "--learning-rate", "2e-5",
+                            *_resolve_echo_training_params(config, task),
                         ], logger=pbar)
-                    else:
-                        # Auto-detect finetuned checkpoint: if training has completed
-                        # for this dataset/setting, use the finetuned adapter weights
-                        # instead of the base zero-shot model.
-                        ft_checkpoint = (
-                            project_root / "results" / task["dataset"] / "Chronos-2-ECHO"
-                            / f"{task['setting']}_training" / "finetuned-ckpt"
-                        )
-                        model_path = echo_model
-                        if ft_checkpoint.is_dir() and (ft_checkpoint / "adapter_model.safetensors").is_file():
-                            model_path = str(ft_checkpoint)
-                            pbar.write(f"  Using finetuned checkpoint: {model_path}")
-                        else:
-                            model_path = echo_model or "amazon/chronos-2"
-                            pbar.write(f"  Using base model: {model_path}")
 
+                    elif mode == "zero_shot":
+                        # Explicit zero-shot: always use the base model, never a
+                        # finetuned checkpoint.
+                        model_path = echo_model or "amazon/chronos-2"
+                        pbar.write(f"  Zero-shot with base model: {model_path}")
+                        run_echo_experiment(
+                            chronos_python=paths["chronos_python"],
+                            runner_path=project_root / "runners" / "chronos_echo_runner.py",
+                            dataset=task["dataset"],
+                            setting=task["setting"],
+                            metadata_path=config["datasets"][task["dataset"]]["metadata"],
+                            output_dir=output_dir,
+                            mode=mode,
+                            model_path=model_path,
+                            batch_size=64,
+                            echo_config=echo_cfg,
+                            logger=pbar,
+                        )
+
+                    else:
+                        # text_only / text_image / image_only: require a finetuned
+                        # checkpoint.  There is no silent fallback to the base model —
+                        # use mode="zero_shot" for that.
+                        # Try training checkpoint first, then fewshot
+                        ft_checkpoint = None
+                        for suffix in ("_training", "_fewshot"):
+                            candidate = (
+                                project_root / "results" / task["dataset"] / "Chronos-2-ECHO"
+                                / f"{task['setting']}{suffix}" / "finetuned-ckpt"
+                            )
+                            if candidate.is_dir() and (
+                                (candidate / "adapter_model.safetensors").is_file()
+                                or (candidate / "model.safetensors").is_file()
+                            ):
+                                ft_checkpoint = candidate
+                                break
+                        if ft_checkpoint is None:
+                            raise RuntimeError(
+                                f"No finetuned checkpoint found for {task['dataset']}/{task['setting']}. "
+                                f"Run mode='training' or 'fewshot' first, or use mode='zero_shot'."
+                            )
+                        model_path = str(ft_checkpoint)
+                        pbar.write(f"  Using finetuned checkpoint: {model_path}")
                         run_echo_experiment(
                             chronos_python=paths["chronos_python"],
                             runner_path=project_root / "runners" / "chronos_echo_runner.py",

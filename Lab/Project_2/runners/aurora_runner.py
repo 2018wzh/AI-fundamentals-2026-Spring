@@ -131,7 +131,7 @@ def evaluate_multimodal_single_csv(
 ):
     df = pd.read_csv(csv_path)
     df["date"] = pd.to_datetime(df["date"])
-    numeric_cols = [col for col in df.columns if col not in {"date", "fact", "start_date", "end_date", "image_path"}]
+    numeric_cols = [col for col in df.columns if col not in {"date", "fact", "start_date", "end_date", "image_path", "prior_history_avg"}]
     numeric_cols = [col for col in numeric_cols if pd.api.types.is_numeric_dtype(df[col])]
     numeric_cols = [col for col in numeric_cols if col != "OT"] + ["OT"]
 
@@ -307,7 +307,18 @@ def main() -> None:
         )
         mode = "unimodal_zero_shot"
     else:
-        manifest_path = metadata["echo_H60_F1"] if args.setting == "H60_F1" else metadata["echo_H120_F5"]
+        echo_key = f"echo_{args.setting}"
+        if echo_key not in metadata:
+            # Fallback: try legacy hardcoded keys for backward compatibility
+            if args.setting == "H60_F1":
+                echo_key = "echo_H60_F1"
+            elif args.setting == "H120_F5":
+                echo_key = "echo_H120_F5"
+            elif args.setting == "H120_F7":
+                echo_key = "echo_H120_F7"
+            else:
+                raise KeyError(f"Metadata missing echo key for setting {args.setting} (tried {echo_key})")
+        manifest_path = metadata[echo_key]
         manifest = pd.read_csv(manifest_path)
         if {"series_id", "csv_path"}.issubset(manifest.columns):
             series_rows = manifest.to_dict(orient="records")

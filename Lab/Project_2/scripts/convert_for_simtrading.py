@@ -80,8 +80,11 @@ def convert(
 
     # Build series_id → symbol mapping from sample data
     # sample_id format: {SYMBOL}_{end_date}_H{history}_F{forecast}
+    # sample_id formats:
+    #   daily:   {SYMBOL}_{YYYY-MM-DD}_H{history}_F{forecast}
+    #   intraday:{SYMBOL}_{ISO_TIMESTAMP}_H{history}_F{forecast}
     matching_samples["_series_id"] = matching_samples["sample_id"].str.extract(
-        rf"^(.+?)_\d{{4}}-\d{{2}}-\d{{2}}_H{history}_F{forecast}$"
+        rf"^(.+?)_\d{{4}}-\d{{2}}-\d{{2}}(?:T\d{{2}}:\d{{2}}:\d{{2}}[+-]\d{{2}}:\d{{2}})?_H{history}_F{forecast}$"
     )[0]
     series_symbol_map = dict(zip(matching_samples["_series_id"], matching_samples["symbol"]))
 

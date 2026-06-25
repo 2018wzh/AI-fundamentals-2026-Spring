@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import os as _os
+
+# Route HF requests through mirror for network accessibility
+_os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+
 import argparse
 from pathlib import Path
 
@@ -79,17 +84,7 @@ def normalize_means(value) -> np.ndarray:
     return array
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Chronos-2 rolling-window evaluator")
-    parser.add_argument("--dataset", required=True)
-    parser.add_argument("--setting", required=True)
-    parser.add_argument("--metadata", required=True)
-    parser.add_argument("--output-dir", required=True)
-    parser.add_argument("--model-id", default="amazon/chronos-2")
-    parser.add_argument("--batch-size", type=int, default=128,
-                        help="Inference batch size (default: 128)")
-    parser.add_argument("--max-windows", type=int, default=0)
-    args = parser.parse_args()
+def cmd_evaluate(args: argparse.Namespace) -> None:
 
     from chronos import Chronos2Pipeline
 
@@ -193,6 +188,93 @@ def main() -> None:
         predictions=predictions,
         runtime=runtime,
     )
+
+
+def cmd_train(args: argparse.Namespace) -> None:
+    """Fine-tune Chronos-2 on chronos_df data."""
+    from chronos import Chronos2Pipeline
+
+    metadata = load_metadata(args.metadata)
+    df = pd.read_parquet(metadata["chronos_df"])
+    history, forecast = parse_setting(args.setting)
+
+    # Build inputs as list of per-series dicts (format expected by Chronos2Pipeline.fit)
+    covariate_cols = [c for c in df.columns if c not in {"item_id", "timestamp", "target"}]
+    inputs = []
+    for item_id, grp in df.groupby("item_id"):
+        grp = grp.sort_values("timestamp").reset_index(drop=True)
+        entry = {"target": grp["target"].to_numpy(dtype=np.float32)}
+        if covariate_cols:
+            entry["past_covariates"] = {c: grp[c].to_numpy(dtype=np.float32) for c in covariate_cols}
+        inputs.append(entry)
+
+    device_map = "cuda" if torch.cuda.is_available() else "cpu"
+    reset_peak_vram()
+    started = timer()
+
+    pipeline = Chronos2Pipeline.from_pretrained(args.model_id, device_map=device_map)
+    print(f"Training on {len(inputs)} series, {sum(len(e['target']) for e in inputs)} total samples")
+    pipeline.fit(
+        inputs,
+        prediction_length=forecast,
+        finetune_mode=args.finetune_mode,
+        learning_rate=args.learning_rate,
+        num_steps=args.num_steps,
+        output_dir=args.output_dir,
+    )
+
+    runtime_sec = elapsed_sec(started)
+    vram_mb = peak_vram_mb()
+    print(f"Training completed in {runtime_sec:.1f}s, peak VRAM {vram_mb} MB")
+
+    import json as _json
+    runtime = {
+        "mode": "training",
+        "runtime_sec": runtime_sec,
+        "peak_vram_mb": vram_mb,
+        "num_steps": args.num_steps,
+        "device_map": device_map,
+        "model_id": args.model_id,
+    }
+    (Path(args.output_dir) / "runtime.json").write_text(
+        _json.dumps(runtime, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Chronos-2 runner")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # Evaluate subcommand
+    eval_parser = subparsers.add_parser("evaluate")
+    eval_parser.add_argument("--dataset", required=True)
+    eval_parser.add_argument("--setting", required=True)
+    eval_parser.add_argument("--metadata", required=True)
+    eval_parser.add_argument("--output-dir", required=True)
+    eval_parser.add_argument("--model-id", default="amazon/chronos-2")
+    eval_parser.add_argument("--batch-size", type=int, default=128)
+    eval_parser.add_argument("--max-windows", type=int, default=0)
+
+    # Train subcommand
+    train_parser = subparsers.add_parser("train")
+    train_parser.add_argument("--dataset", required=True)
+    train_parser.add_argument("--setting", required=True)
+    train_parser.add_argument("--metadata", required=True)
+    train_parser.add_argument("--output-dir", required=True)
+    train_parser.add_argument("--model-id", default="amazon/chronos-2")
+    train_parser.add_argument("--finetune-mode", default="lora", choices=["lora", "full"])
+    train_parser.add_argument("--learning-rate", type=float, default=5e-6)
+    train_parser.add_argument("--num-steps", type=int, default=20000)
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+    if args.command == "evaluate":
+        cmd_evaluate(args)
+    elif args.command == "train":
+        cmd_train(args)
 
 
 if __name__ == "__main__":

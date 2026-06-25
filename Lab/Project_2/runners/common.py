@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import time
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +16,7 @@ except ImportError:  # pragma: no cover
     torch = None
 
 
-FINANCIAL_DATASETS = {"fnspid", "oiletf"}
+FINANCIAL_DATASETS = {"fnspid", "oiletf", "oiletf_intraday"}
 
 
 def load_config(config_path: str | Path) -> dict[str, Any]:
@@ -42,6 +43,15 @@ def safe_float(value: Any) -> float | None:
 
 def flatten_array(values: np.ndarray) -> np.ndarray:
     return np.asarray(values, dtype=np.float64).reshape(-1)
+
+
+def standardize_like_target(y_true: np.ndarray, *arrays: np.ndarray | None) -> tuple[np.ndarray, ...]:
+    y_true_f = flatten_array(y_true)
+    scale = float(np.std(y_true_f))
+    if scale == 0.0:
+        scale = 1.0
+    center = float(np.mean(y_true_f))
+    return tuple(None if values is None else (flatten_array(values) - center) / scale for values in arrays)
 
 
 def smape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -83,8 +93,30 @@ def compute_metrics(
     peak_vram_mb: float | None = None,
     mode: str = "default",
 ) -> dict[str, Any]:
-    y_true_f = flatten_array(y_true)
-    y_pred_f = flatten_array(y_pred)
+    # Filter NaN from y_true (and corresponding y_pred) — some Time-MMD
+    # CSVs have missing OT values that would poison all metrics.
+    valid_mask = ~(np.isnan(y_true.flatten()) | np.isnan(y_pred.flatten()))
+    if not np.all(valid_mask):
+        y_true = y_true.flatten()[valid_mask].reshape(-1, 1) if y_true.ndim > 1 else y_true.flatten()[valid_mask]
+        y_pred = y_pred.flatten()[valid_mask].reshape(-1, 1) if y_pred.ndim > 1 else y_pred.flatten()[valid_mask]
+        if q10 is not None:
+            q10 = q10.flatten()[valid_mask].reshape(-1, 1) if q10.ndim > 1 else q10.flatten()[valid_mask]
+        if q50 is not None:
+            q50 = q50.flatten()[valid_mask].reshape(-1, 1) if q50.ndim > 1 else q50.flatten()[valid_mask]
+        if q90 is not None:
+            q90 = q90.flatten()[valid_mask].reshape(-1, 1) if q90.ndim > 1 else q90.flatten()[valid_mask]
+    # Guard against empty arrays (all predictions/targets were NaN)
+    if len(y_true) == 0:
+        return {
+            "mode": mode,
+            "mae": float("nan"), "mse": float("nan"), "rmse": float("nan"),
+            "smape": float("nan"),
+            "pinball_q10": None, "pinball_q50": None, "pinball_q90": None,
+            "directional_accuracy": None, "f1_up_down": None,
+            "runtime_sec": safe_float(runtime_sec),
+            "peak_vram_mb": safe_float(peak_vram_mb),
+        }
+    y_true_f, y_pred_f, q10_f, q50_f, q90_f = standardize_like_target(y_true, y_true, y_pred, q10, q50, q90)
     mse = float(np.mean((y_true_f - y_pred_f) ** 2))
     mae = float(np.mean(np.abs(y_true_f - y_pred_f)))
     rmse = float(np.sqrt(mse))
@@ -94,17 +126,29 @@ def compute_metrics(
         "mse": mse,
         "rmse": rmse,
         "smape": smape(y_true_f, y_pred_f),
-        "pinball_q10": safe_float(pinball_loss(y_true_f, flatten_array(q10), 0.1)) if q10 is not None else None,
-        "pinball_q50": safe_float(pinball_loss(y_true_f, flatten_array(q50), 0.5)) if q50 is not None else None,
-        "pinball_q90": safe_float(pinball_loss(y_true_f, flatten_array(q90), 0.9)) if q90 is not None else None,
+        "pinball_q10": safe_float(pinball_loss(y_true_f, q10_f, 0.1)) if q10_f is not None else None,
+        "pinball_q50": safe_float(pinball_loss(y_true_f, q50_f, 0.5)) if q50_f is not None else None,
+        "pinball_q90": safe_float(pinball_loss(y_true_f, q90_f, 0.9)) if q90_f is not None else None,
         "directional_accuracy": None,
         "f1_up_down": None,
         "runtime_sec": safe_float(runtime_sec),
         "peak_vram_mb": safe_float(peak_vram_mb),
     }
     if dataset.lower() in FINANCIAL_DATASETS:
-        result["directional_accuracy"] = directional_accuracy(y_true_f, y_pred_f)
+        da = directional_accuracy(y_true_f, y_pred_f)
+        result["directional_accuracy"] = da
         result["f1_up_down"] = binary_f1(y_true_f, y_pred_f)
+        # Sanity check: directional accuracy > 80% for financial returns is
+        # essentially impossible without data leakage.  Emit a prominent warning
+        # so the issue is visible even when metrics are aggregated downstream.
+        if da is not None and da > 0.80:
+            warnings.warn(
+                f"SUSPICIOUS directional_accuracy={da:.4f} (>0.80) for "
+                f"dataset={dataset!r}, model result mode={mode!r}. "
+                f"Financial return direction is near-random; values this high "
+                f"strongly suggest data leakage (e.g. feature-target identity "
+                f"or train/test contamination)."
+            )
     return result
 
 
